@@ -3,3 +3,7 @@ server:
 spring:
   application:
     name: service-config-client
+  cloud:
+    client:
+      ipAddress: 192.168.3.105
+    

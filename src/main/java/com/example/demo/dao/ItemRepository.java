@@ -1,8 +1,10 @@
-package com.example.demo.es;
+package com.example.demo.dao;
 
 import java.util.List;
 
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
+
+import com.example.demo.entity.Item;
 
 public interface ItemRepository extends ElasticsearchRepository<Item,Long> {
 	 /**

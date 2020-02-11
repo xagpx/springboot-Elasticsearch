@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="10 seconds">
+              
+    <springProperty scope="context" name="springAppName" 	source="spring.application.name" />          
+    <springProperty scope="context" name="ip" source="spring.cloud.client.ipAddress" />   
+    <springProperty scope="context" name="port" 	source="server.port" />        
+   <!--  <conversionRule conversionWord="serverIp" converterClass="com.example.demo.config.LogIpConfig" /> -->
+    <property name="CONSOLE_LOG_PATTERN"  value="%date [%thread] %-5level %logger{36} - %msg%n" />                
+                    
+    <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+    	<withJansi>true</withJansi>
+		<encoder>
+           <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+		   <charset>utf8</charset>
+   		</encoder>
+    </appender>      
+    
+    <appender name="logstash"
+    	class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+    	<destination>127.0.0.1:4560</destination>	
+    	<encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+    		<providers>
+    			<timestamp>
+    				<timeZone>UTC</timeZone>
+    			</timestamp>
+    			<pattern>
+    				<pattern>
+    					{
+    					   "host": "${ip}:${port}",
+    					   "severity":"%level",
+							"service": "${springAppName:-}",  
+							"trace": "%X{X-B3-TraceId:-}",  
+							"span": "%X{X-B3-SpanId:-}",  
+							"exportable": "%X{X-Span-Export:-}",  
+							"pid": "${PID:-}",  
+							"thread": "%thread",  
+							"class": "%logger{40}",  
+							"message": "%message" ,
+							"stack_trace": "%exception{40}"    
+    					}
+    				</pattern>
+    			</pattern>
+    		</providers>
+    	</encoder>
+    </appender>
+    
+    <appender name="dailyRollingFileAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+	  <File>main.log</File>
+	  <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+	    <FileNamePattern>main.%d{yyyy-MM-dd}.log</FileNamePattern>
+	    <maxHistory>30</maxHistory>         
+	  </rollingPolicy>
+	  <encoder>
+	    <Pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{35} - %msg %n</Pattern>
+	  </encoder>        
+	   <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+	    <level>DEBUG</level>
+	  </filter>
+	</appender>
+          
+    <springProfile name="!production"> 
+        <logger name="com.myfee" level="DEBUG" />
+        <logger name="org.springframework.web" level="INFO"/>
+        <root level="info">  
+	        <appender-ref ref="stdout" />  
+	        <appender-ref ref="dailyRollingFileAppender" />  
+	        <appender-ref ref="logstash" /> 
+	    </root> 
+    </springProfile>
+    
+    <springProfile name="production"> 
+		<logger name="com.myfee" level="DEBUG" />
+        <logger name="org.springframework.web" level="INFO"/>
+        <root level="info">  
+	        <appender-ref ref="stdout" />  
+	        <appender-ref ref="dailyRollingFileAppender" /> 
+	        <appender-ref ref="logstash" />  
+	    </root> 
+	</springProfile>
+</configuration>

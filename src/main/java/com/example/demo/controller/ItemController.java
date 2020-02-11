@@ -1,12 +1,21 @@
-package com.example.demo.es;
+package com.example.demo.controller;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.bucket.terms.LongTerms;
+import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms.Bucket;
 import org.elasticsearch.search.aggregations.metrics.avg.InternalAvg;
+import org.elasticsearch.search.aggregations.metrics.avg.ParsedAvg;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
@@ -16,6 +25,10 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.example.demo.dao.ItemRepository;
+import com.example.demo.entity.Item;
+import com.example.demo.util.ReturnT;
 
 @RestController
 @RequestMapping("/item")
@@ -48,10 +61,7 @@ public class ItemController {
         // 对某字段排序查找所有 Sort.by("price").descending() 降序
         // Sort.by("price").ascending():升序
         Iterable<Item> list = this.itemRepository.findAll(Sort.by("price").ascending());
-        for (Item item:list){
-            System.out.println(item);
-        }
-        return "0";
+        return new ReturnT(list).toString();
     }
 	@RequestMapping("/selectAlls")
 	public String queryByPriceBetween(){
@@ -59,7 +69,7 @@ public class ItemController {
 	    for (Item item : list) {
 	        System.out.println("item = " + item);
 	    }
-	    return "0";
+	    return new ReturnT(list).toString();
 	}
 	@RequestMapping("/selects")
 	public String testMatchQuery(){
@@ -72,11 +82,7 @@ public class ItemController {
 	    // 总条数
 	    long total = items.getTotalElements();
 	    System.out.println("total = " + total);
-	    for (Item item : items) {
-	        System.out.println(item);
-	    }
-	    
-	    return "0";
+	    return new ReturnT(items).toString();
 	}
 	
 	@DeleteMapping("/delete")
@@ -86,37 +92,40 @@ public class ItemController {
 	}
 	@RequestMapping("/Agg")
 	public String testAgg(){
+		Map<String,Long> map=new HashMap<String,Long>();
 	    NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 	    // 不查询任何结果
 	    queryBuilder.withSourceFilter(new FetchSourceFilter(new String[]{""}, null));
 	    // 1、添加一个新的聚合，聚合类型为terms，聚合名称为brands，聚合字段为brand
 	    queryBuilder.addAggregation(
-	        AggregationBuilders.terms("brands").field("brand"));
+	        AggregationBuilders.terms("brands").field("brand.keyword"));
 	    // 2、查询,需要把结果强转为AggregatedPage类型
 	    AggregatedPage<Item> aggPage = (AggregatedPage<Item>) this.itemRepository.search(queryBuilder.build());
 	    // 3、解析
 	    // 3.1、从结果中取出名为brands的那个聚合，
 	    // 因为是利用String类型字段来进行的term聚合，所以结果要强转为StringTerm类型
-	    StringTerms agg = (StringTerms) aggPage.getAggregation("brands");
+	    ParsedStringTerms agg = (ParsedStringTerms) aggPage.getAggregation("brands");
 	    // 3.2、获取桶
-	    List<StringTerms.Bucket> buckets = agg.getBuckets();
-	    // 3.3、遍历
-	    for (StringTerms.Bucket bucket : buckets) {
+	    List<? extends Bucket>  buckets = agg.getBuckets();
+//	    // 3.3、遍历
+	    for (Bucket bucket : buckets) {
 	        // 3.4、获取桶中的key，即品牌名称
-	        System.out.println(bucket.getKeyAsString());
+	       System.out.println(bucket.getKeyAsString());
 	        // 3.5、获取桶中的文档数量
 	        System.out.println(bucket.getDocCount());
+	        map.put(bucket.getKeyAsString(), bucket.getDocCount());
 	    }
-	    return  "0";
+	    return new ReturnT<Map<String, Long>>(map).toString();
 	}
 	@RequestMapping("/SubAgg")
 	public String testSubAgg(){
+		Map<String,Double> map=new HashMap<String,Double>();
 	    NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 	    // 不查询任何结果
 	    queryBuilder.withSourceFilter(new FetchSourceFilter(new String[]{""}, null));
 	    // 1、添加一个新的聚合，聚合类型为terms，聚合名称为brands，聚合字段为brand
 	    queryBuilder.addAggregation(
-	        AggregationBuilders.terms("brands").field("brand")
+	        AggregationBuilders.terms("brands").field("brand.keyword")
 	        .subAggregation(AggregationBuilders.avg("priceAvg").field("price")) // 在品牌聚合桶内进行嵌套聚合，求平均值
 	    );
 	    // 2、查询,需要把结果强转为AggregatedPage类型
@@ -124,18 +133,20 @@ public class ItemController {
 	    // 3、解析
 	    // 3.1、从结果中取出名为brands的那个聚合，
 	    // 因为是利用String类型字段来进行的term聚合，所以结果要强转为StringTerm类型
-	    StringTerms agg = (StringTerms) aggPage.getAggregation("brands");
+//	    StringTerms agg = (StringTerms) aggPage.getAggregation("brands");
+	    ParsedStringTerms agg = (ParsedStringTerms) aggPage.getAggregation("brands");
 	    // 3.2、获取桶
-	    List<StringTerms.Bucket> buckets = agg.getBuckets();
+	    List<? extends Bucket> buckets = agg.getBuckets();
 	    // 3.3、遍历
-	    for (StringTerms.Bucket bucket : buckets) {
+	    for (Bucket bucket : buckets) {
 	        // 3.4、获取桶中的key，即品牌名称  3.5、获取桶中的文档数量
 	        System.out.println(bucket.getKeyAsString() + "，共" + bucket.getDocCount() + "台");
-	
 	        // 3.6.获取子聚合结果：
-	        InternalAvg avg = (InternalAvg) bucket.getAggregations().asMap().get("priceAvg");
+	        ParsedAvg avg = (ParsedAvg) bucket.getAggregations().asMap().get("priceAvg");
 	        System.out.println("平均售价：" + avg.getValue());
+	        
+	        map.put(bucket.getKeyAsString() + "，共" + bucket.getDocCount() + "台",avg.getValue());
 	    }
-	    return  "0";
+	    return new ReturnT<Map<String, Double>>(map).toString();
 	}
 }

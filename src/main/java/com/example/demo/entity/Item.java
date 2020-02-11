@@ -1,4 +1,4 @@
-package com.example.demo.es;
+package com.example.demo.entity;
 
 import java.io.Serializable;
 
@@ -35,7 +35,7 @@ public class Item implements Serializable {
     @Field(type = FieldType.Keyword)
     private String category;// 分类
     
-    @Field(type = FieldType.Keyword)
+    @Field(index=true,type = FieldType.Keyword)
     private String brand; // 品牌
     
     @Field(type = FieldType.Double)
